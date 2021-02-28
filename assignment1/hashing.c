@@ -45,7 +45,7 @@ void insert_hash_cell(char *strptr) {
             hashtable[index] = new_hashcell;
         } else {
             while (current != NULL) {
-                if (current->next == NULL) {
+                if (current->next == NULL && strcmp(current->word, new_hashcell->word) != 0) {
                     current->next = new_hashcell;
                     return;
                 }
