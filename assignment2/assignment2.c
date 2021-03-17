@@ -1,9 +1,7 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "sum_squares.h"
-
 
 // The print_hex function prints a 32-bit word out in hexadecimal, using only
 // printf's "%c" or "%d" format specifiers.
@@ -12,19 +10,33 @@
 // digit (between 0 and F, inclusive).
 
 // complete this constant definition for the mask
-
-#define FOUR_BIT_BASK  // FILL IN HERE
+#define FOUR_BIT_BASK 0xF
 
 // It takes as a parameter a pointer p of type void *, so that p can be
 // a pointer to anything (i.e. you can pass in the address of anything).
-
-void print_hex(void *p)
-{
+void print_hex(void *p) {
     // copy the value that p points to into an unsigned integer variable.
     unsigned int x = *((unsigned int *) p);
 
     // In a loop, select four bits at a time using a mask.  Then, print
     // the value of that four-bit group using a single hex digit.
+
+    for(int i=28; i>=0; i-=4){
+        int print_bits = (x >> i) & FOUR_BIT_BASK;
+
+        if (print_bits >= 0 && print_bits <= 9) {
+            printf("%u", print_bits);
+        } else {
+            printf("%x", print_bits);
+        }
+    }
+
+    /*
+     *  All I'm asking you to do is take a 32 bit number, and by printing
+     *  out the value of 4 bits at a time (whose value will be between 0
+     *  and 15 decimal, that is, between 0 and F hex) as a hex digit,
+     *  the number gets printed exactly as using "%x" in printf would do.
+     */
 
     // IMPORTANT: Do NOT use a bunch of "if" statements to map the
     // bits to a hex digit. Either use the value of the bits to
@@ -35,12 +47,10 @@ void print_hex(void *p)
 
 }   // end of print_hex
 
-
 // This function performs division on signed 32-bit integers,
 // by using shifting and subtraction (not the "/" operator).
 // It performs division on the positive (unsigned) versions of the
 // numbers, and then adjusts the sign of the result as necessary.
-
 int divide(int x, int y) {
 
     // leave these lines unchanged. Notice the use of the "exit" operator,
@@ -58,18 +68,32 @@ int divide(int x, int y) {
     // you will need to negate them before writing them into x1 and y1.
     // If you negated exactly one of x or y, you will need to
     // negate the result after performing the unsigned division.
+    unsigned long x1;
+    unsigned long y1;
 
-    // FILL IN CODE HERE
+    if (x < 0) {
+        x1 = ~x + 1;
+    } else {
+        x1 = x;
+    }
+
+    if (y < 0) {
+        y1 = ~y + 1;
+    } else {
+        y1 = y;
+    }
+
+    int sign = 1;
+    if (x * y < 0) {
+        sign = -1;
+    }
 
     // Shift the 32-bit value (which was either y or -y) that you wrote into y1
     // to the leftmost 32 bits of y1.
-
-    // FILL IN CODE HERE
+    y1 << 32;
 
     // Declare an unsigned 32-bit integer to be used as the quotient
-
-    // FILL IN CODE HERE
-
+    unsigned int quotient = 0;
 
     // In a loop that terminates when the original 32-bit value in y1
     // has been shifted back to it's original position:
@@ -78,19 +102,23 @@ int divide(int x, int y) {
     //    - if y1 is less than or equal to x1, write a 1
     //      into the rightmost bit of the quotient
     //      and subtract y1 from x1.
-
-    // FILL IN CODE HERE
+    for (int i=0; i < 31; i++) {
+        y1 >> 1;
+        quotient << 1;
+        if (y1 <= x1) {
+            quotient += 1;
+            x1 -= y1;
+        }
+    }
 
     // write the quotient into a signed integer
     // variable, adjust the sign if necessary, and
     // return the value of the signed variable.
+    int signed_int = quotient;
 
-    // FILL IN CODE HERE
+    return sign * signed_int;
 
 }  // end of the divide function
-
-
-
 
 // Define as macros the expressions for extracting the
 // sign, exponent, and fraction fields of a 32-bit
@@ -115,6 +143,7 @@ int divide(int x, int y) {
 // by extracting on the sign, exponent, and fraction of the
 // operands and performing operations using those to
 // compute the sign, exponent, and operand of the result.
+
 
 float float_add(float f, float g)
 {
@@ -248,26 +277,24 @@ float float_add(float f, float g)
 
 int main()
 {
+    // print_hex() tests
+//    int x;
+//    printf("Enter a number to print in hex > ");
+//    scanf("%d", &x);
+//    print_hex(&x);
+//    printf("\n");
+//    printf("Checking, answer should be: %x\n", x);
 
-    int x;
-    printf("Enter a number to print in hex > ");
-    scanf("%d", &x);
-    print_hex(&x);
-    printf("\n");
-    printf("Checking, answer should be: %x\n", x);
-
-    /*
-
+    // divide() tests
     int a, b;
-
     printf("Enter a divisor and a dividend > ");
     scanf("%d %d", &a, &b);
 
     int c = divide(a,b);
-
     printf("%d/%d = %d\n", a, b, c);
     printf("Checking, answer should be: %d\n", a/b);
 
+    /*
     float f, g;
 
     printf("Enter two floating point numbers (to add) > ");
