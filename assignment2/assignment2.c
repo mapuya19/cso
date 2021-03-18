@@ -125,17 +125,13 @@ int divide(int x, int y) {
 // floating point number.
 
 // select bit 31, shifted all the way to the right.
-
-#define SIGN(x) (/* FILL THIS IN */)
+#define SIGN(x) (((x) >> 31) & 1)
 
 // select bits 23 through 30, shifted right by 23 bits
-
-#define EXP(x) (/* FILL THIS IN */)
+#define EXP(x) (((x) >> 23) & 0xFF)
 
 // select bits 0 through 22 (the rightmost 23 bits)
-
-#define FRAC(x) (/* FILL THIS IN */)
-
+#define FRAC(x) (((x) & 0x7FFFFF))
 
 // This function performs a floating point addition without
 // using the built-in floating point addition -- instead, it only
@@ -143,55 +139,57 @@ int divide(int x, int y) {
 // by extracting on the sign, exponent, and fraction of the
 // operands and performing operations using those to
 // compute the sign, exponent, and operand of the result.
-
-
-float float_add(float f, float g)
-{
-
+float float_add(float f, float g) {
     // We need to treat the values stored in f and g
     // as 32-bit unsigned numbers. See the hint sheet
     // for ways to do that.  We then need to extract the
     // sign, exponent, and fraction fields from f
     // and g, using the SIGN, EXP, and FRAC macros
     // above.
+    unsigned int sign_f = SIGN(*((unsigned int *) &f));
+    unsigned int sign_g = SIGN(*((unsigned int *) &g));
 
-    unsigned int sign_f = /* FILL THIS IN */;
-    unsigned int sign_g = /* FILL THIS IN */;
+    unsigned int exp_f =  EXP(*((unsigned int *) &f));
+    unsigned int exp_g =  EXP(*((unsigned int *) &g));
 
-
-    unsigned int exp_f =  /* FILL THIS IN */;
-    unsigned int exp_g =  /* FILL THIS IN */;
-
-    unsigned int frac_f = /* FILL THIS IN */;
-    unsigned int frac_g =  /* FILL THIS IN */;
+    unsigned int frac_f = FRAC((*((unsigned int *) &f)));
+    unsigned int frac_g = FRAC((*((unsigned int *) &g)));
 
     // Handle the special case where f is zero (i.e.
     // both the exp_f and frac_f are zero),
     // in which case the value of g should be returned immediately.
-
-    // FILL THIS IN
+    if (exp_f == 0 && frac_f == 0) {
+        return g;
+    }
 
     // Do the same for g (i.e. check if g is zero).
-
-    // FILL THIS IN
+    if (exp_g == 0 && frac_g == 0) {
+        return f;
+    }
 
     // In order to perform the multiplication, the implicit
     // leading 1 in the mantissa for f and g must be made
     // explicit. That is, the mantissa for f should contain
     // a 1 in the bit 23 position, followed by the bits of frac_f.
     // The same is true for the mantissa of g.
-
-    unsigned int mantissa_f = /* FILL THIS IN */;
-    unsigned int mantissa_g = /* FILL THIS IN */;
+    unsigned int mantissa_f = frac_f | (1 << 23);
+    unsigned int mantissa_g = frac_g | (1 << 23);
 
     // Before performing any addition, the two numbers must have the
     // same exponent. Take the mantissa of the number with the smaller
     // exponent, and shift that mantissa right by the difference in the
     // exponents, and set the smaller exponent to the larger exponent.
     // For example, if f has a smaller exponent than g, shift mantissa_f
-    // the right by (exp_g - exp_f) bits and set exp_f to exp_g.
+    // the right by (exp_g - exp_f) bits and set exp_f to exp_g.]
+    if (exp_f < exp_g) {
+        mantissa_f = mantissa_f >> (exp_g - exp_f);
+        exp_f = exp_g;
+    }
 
-    // FILL THIS IN
+    if (exp_g < exp_f) {
+        mantissa_g = mantissa_g >> (exp_f - exp_g);
+        exp_g = exp_f; // check why this assignment doesn't work later
+    }
 
     // Now it's time to compute the exponent, sign, and
     // mantissa of the result.
@@ -201,16 +199,13 @@ float float_add(float f, float g)
     // exponent_g).
 
     // This will hold the sign of the result.
-
     unsigned int sign_res;
 
     // This will hold the mantissa of the result.
-
-    unsigned int mantissa_res;
+    unsigned int mantissa_res = 0;
 
     // This holds the exponent of the result.
-
-    unsigned int exp_res = /* FILL THIS IN */;
+    unsigned int exp_res = exp_f;
 
     // If  sign_f and sign_g are the same, i.e. they are both
     // 0 (positive) or 1 (negative), then:
@@ -222,14 +217,15 @@ float float_add(float f, float g)
     //       That is, if bit 24 of the result mantissa is 1, then the
     //       result mantissa should be shifted to the right by 1 and the
     //       exponent of the result should be incremented by 1.
+    if ((sign_f == sign_g) == 1) {
+        sign_res = sign_f;
+        mantissa_res = mantissa_f + mantissa_g;
 
-    if (sign_f == sign_g) {
-
-        /* FILL THIS IN */
-
-    }
-    else {
-
+        if (mantissa_res & (1 << 24)) {
+            mantissa_res = mantissa_res >> 1;
+            exp_res += 1;
+        }
+    } else {
         // Otherwise, namely if sign_f and sign_g are different (i.e. one
         // number was positive and one negative), then:
         //    -- the sign of the result is the sign of the number with the larger
@@ -248,9 +244,22 @@ float float_add(float f, float g)
         //       a loop, shifting the result mantissa to the left by 1 bit and subtracting
         //       1 from the result exponent, until the mantissa has a 1 in the
         //       bit 23 position.
+        if (mantissa_f < mantissa_g) {
+            sign_res = sign_g;
+            mantissa_res = (mantissa_g - mantissa_f);
+        } else if (mantissa_g < mantissa_f) {
+            sign_res = sign_f;
+            mantissa_res = (mantissa_f - mantissa_g);
+        }
 
-        // FILL THIS IN
-
+        if (mantissa_res == 0) {
+            return 0;
+        } else {
+            while(!(mantissa_res & (1 << 23))) {
+                mantissa_res = mantissa_res << 1;
+                exp_res -= 1;
+            }
+        }
     }
 
     // Now construct the result from OR'ing (using bitwise-or, | ) together the
@@ -259,17 +268,12 @@ float float_add(float f, float g)
     //  -- the lowest 8 bits of the exponent, shifted into exponent position
     //  -- the lowest 23 bits of the mantissa (i.e. removing the 1 in bit 23 position,
     //     since it is implicit)
-
-    unsigned int result  = /* FILL THIS IN */;
+    unsigned int result = ((sign_res << 31) | (((exp_res) & 0xFF) << 23) | ((mantissa_res) & 0x7FFFFF));
 
     // Return the computed result (which is an unsigned int) as a floating point number.
     // Be sure that the compiler does not perform a conversion (see the hint sheet).
-
-    return /* FILL THIS IN */;
+    return *((float *) &result);;
 }
-
-
-
 
 // No code in this function should be changed. Just uncomment the appropriate
 // code as you complete each of the functions above and the assembly
@@ -286,24 +290,25 @@ int main()
 //    printf("Checking, answer should be: %x\n", x);
 
     // divide() tests
-    int a, b;
-    printf("Enter a divisor and a dividend > ");
-    scanf("%d %d", &a, &b);
+//    int a, b;
+//    printf("Enter a divisor and a dividend > ");
+//    scanf("%d %d", &a, &b);
+//
+//    int c = divide(a,b);
+//    printf("%d/%d = %d\n", a, b, c);
+//    printf("Checking, answer should be: %d\n", a/b);
 
-    int c = divide(a,b);
-    printf("%d/%d = %d\n", a, b, c);
-    printf("Checking, answer should be: %d\n", a/b);
+    // float_add() tests
+//    float f, g;
+//
+//    printf("Enter two floating point numbers (to add) > ");
+//    scanf("%f", &f);
+//    scanf("%f", &g);
+//
+//    printf("Computed %f + %f = %f\n", f, g, float_add(f,g));
+//    printf("Checking, answer should be %f\n", f+g);
 
-    /*
-    float f, g;
-
-    printf("Enter two floating point numbers (to add) > ");
-    scanf("%f", &f);
-    scanf("%f", &g);
-
-    printf("Computed %f + %f = %f\n", f, g, float_add(f,g));
-    printf("Checking, answer should be %f\n", f+g);
-
+    // sum_squares() tests
     int n;
     printf("Enter n > ");
 
@@ -314,8 +319,5 @@ int main()
     for(int i = 1; i <= n; i++)
       sum += i*i;
     printf("Checking: %d\n", sum);
-
-    */
-
 }
 
