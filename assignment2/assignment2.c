@@ -282,31 +282,31 @@ float float_add(float f, float g) {
 int main()
 {
     // print_hex() tests
-//    int x;
-//    printf("Enter a number to print in hex > ");
-//    scanf("%d", &x);
-//    print_hex(&x);
-//    printf("\n");
-//    printf("Checking, answer should be: %x\n", x);
+    int x;
+    printf("Enter a number to print in hex > ");
+    scanf("%d", &x);
+    print_hex(&x);
+    printf("\n");
+    printf("Checking, answer should be: %x\n", x);
 
     // divide() tests
-//    int a, b;
-//    printf("Enter a divisor and a dividend > ");
-//    scanf("%d %d", &a, &b);
-//
-//    int c = divide(a,b);
-//    printf("%d/%d = %d\n", a, b, c);
-//    printf("Checking, answer should be: %d\n", a/b);
+    int a, b;
+    printf("Enter a divisor and a dividend > ");
+    scanf("%d %d", &a, &b);
+
+    int c = divide(a,b);
+    printf("%d/%d = %d\n", a, b, c);
+    printf("Checking, answer should be: %d\n", a/b);
 
     // float_add() tests
-//    float f, g;
-//
-//    printf("Enter two floating point numbers (to add) > ");
-//    scanf("%f", &f);
-//    scanf("%f", &g);
-//
-//    printf("Computed %f + %f = %f\n", f, g, float_add(f,g));
-//    printf("Checking, answer should be %f\n", f+g);
+    float f, g;
+
+    printf("Enter two floating point numbers (to add) > ");
+    scanf("%f", &f);
+    scanf("%f", &g);
+
+    printf("Computed %f + %f = %f\n", f, g, float_add(f,g));
+    printf("Checking, answer should be %f\n", f+g);
 
     // sum_squares() tests
     int n;

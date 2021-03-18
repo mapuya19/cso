@@ -26,21 +26,21 @@ sum_squares:
 	pushq	%rbp         # LEAVE THIS ALONE
 	movq	%rsp, %rbp   # LEAVE THIS ALONE
 
-	movq $0, %eax  		# sum = 0, since sum is to be returned,
+	movl	$0, %eax  	# sum = 0, since sum is to be returned,
 	                    #          use %eax to hold sum.
 
-	movq $1, %ecx  		# i = 1
+	movl 	$1, %edx  	# i = 1
 
 TOP: # THIS IS THE TOP OF THE LOOP, NEED A LABEL
 
-	cmpq %ecx, %eax		# compare i to n
-	jq DONE  # if i is greater than n, jump out of loop
+	cmpl 	%ecx, %edx	# compare i to n
+	jg DONE             # if i is greater than n, jump out of loop
 
-	/* FILL THIS IN */  # copy i into another register
-	/* FILL THIS IN */  # multiply that register by i to get i*i
-	/* FILL THIS IN */  # add that register to sum
+	movl 	%edx, %ebx   # copy i into another register
+	imull 	%edx, %ebx   # multiply that register by i to get i*i
+	addl 	%ebx, %eax   # add that register to sum
 	
-	incq %ecx  			# i++
+	incl 	%edx  		# i++
 	jmp TOP			  	# jump to top of loop
 
 DONE: # THIS IS OUTSIDE THE LOOP, NEED A LABEL
