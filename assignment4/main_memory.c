@@ -30,8 +30,8 @@ void main_memory_initialize(uint32_t size_in_bytes)
   }
 
   //Allocate the main memory, using malloc
-
-  //CODE HERE
+  main_memory_size_in_bytes = size_in_bytes;
+  main_memory = malloc(main_memory_size_in_bytes);
 
   //Write a 0 to each word in main memory. Note that the 
   //size_in_bytes parameter specifies the size of main memory
@@ -40,8 +40,11 @@ void main_memory_initialize(uint32_t size_in_bytes)
   //(not a byte at a time). Obviously, the size of main memory
   //in words is 1/4 of the size of main memory in bytes.
 
-  //CODE HERE
+  int counter = 0;
 
+  for (int i=0; i < (main_memory_size_in_bytes / 4); i++) {
+    main_memory[i];
+  }
 }
   
 
@@ -86,14 +89,17 @@ void main_memory_access(uint32_t address, uint32_t write_data[],
   //size of the memory. If not, print an error message and
   //exit from the program.
 
-  //CODE HERE
+  if (sizeof(address) <= main_memory_size_in_bytes) {
+  } else {
+    printf("Address not within size of memory.");
+  }
 
 
   //Determine the address of the start of the desired cache line.
   //Use CACHE_LINE_ADDRESS_MASK to mask out the appropriate
   //number of low bits of the address. 
 
-  //CODE HERE
+  uint32_t start_address = (address & CACHE_LINE_ADDRESS_MASK) >> 2;
 
 
   //If the read-enable bit of the control parameter is set (i.e. is 1), 
@@ -101,13 +107,20 @@ void main_memory_access(uint32_t address, uint32_t write_data[],
   //See memory_subsystem_constants.h for masks that are convenient for
   //testing the bits of the control parameter.
 
-  //CODE HERE
+  if (control & READ_ENABLE_MASK) {
+    uint32_t read_address = start_address;
+    for (int i=0; i <= 7; i++) {
+      read_data[i] = main_memory[read_address++];
+    }
+  }
 
 
   //If the write-enable bit of the control parameter is set then copy
   //write_data into the cache line starting at cache_line_address.
 
-
-  //CODE HERE
-
+  if (control & WRITE_ENABLE_MASK) {
+    for (int i=0; i <= 7; i++) {
+      main_memory[start_address++] = write_data[i];
+    }
+  }
 }
