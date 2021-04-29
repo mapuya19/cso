@@ -101,8 +101,9 @@ This procedure initializes the L2 cache by clearing
 
 void l2_initialize()
 {
-
-  //CODE HERE
+  for (int i=0; i < L2_NUM_CACHE_ENTRIES; i++) {
+    l2_cache[i].v_d_tag = 0;
+  }
 }
 
 
@@ -163,21 +164,23 @@ void l2_cache_access(uint32_t address, uint32_t write_data[],
   //bits of the address and L2_INDEX_SHIFT
   //to shift the appropriate amount.
 
-  //CODE HERE
+  uint32_t extracted_index = (address & L2_INDEX_MASK) >> L2_INDEX_SHIFT;
 
   //Extract from the address the tag bits.
   //Use the L2_ADDRESS_TAG_MASK mask to mask out the appropriate
   //bits of the address and L2_ADDRESS_TAG_SHIFT
   //to shift the appropriate amount.
 
-  //CODE HERE
+  uint32_t extracted_tag_bits = (address & L2_ADDRESS_TAG_MASK) >> L2_ADDRESS_TAG_SHIFT;
 
   //if the selected cache entry has a zero valid bit or 
   //if the entry's tag does not match the tag bits of
   //the address, then it is a cache miss: Set the
   //low bit of the status byte appropriately.
 
-  //CODE HERE
+  if (((l2_cache[extracted_index].v_d_tag & L2_VBIT_MASK) == 0) || ((l2_cache[extracted_index].v_d_tag & L2_ENTRY_TAG_MASK) != extracted_tag_bits)) {
+    *status = *status & ~(L2_HIT_STATUS_MASK);
+  }
 
   //Otherwise, it's a cache hit:
   //If the read-enable bit of the control parameter is set (i.e. is 1)
@@ -186,9 +189,23 @@ void l2_cache_access(uint32_t address, uint32_t write_data[],
   //copy the data in the write_data array into the cache line starting at
   //the cache line index and set the dirty bit. Set the low bit
   //of the status byte appropriately.
+  else {
+    if (control & READ_ENABLE_MASK) {
+      for (int i=0; i < WORDS_PER_CACHE_LINE; i++) {
+        read_data[i] = l2_cache[extracted_index].cache_line[i];
+      }
+    } 
 
-  //CODE HERE
+    if (control & WRITE_ENABLE_MASK) {
+      for (int i=0; i < WORDS_PER_CACHE_LINE; i++) {
+        l2_cache[extracted_index].cache_line[i] = write_data[i];
+      }
 
+      l2_cache[extracted_index].v_d_tag |= L2_DIRTYBIT_MASK;
+    }
+
+    *status = *status | L2_HIT_STATUS_MASK;
+  }
 }
 
 
@@ -236,12 +253,12 @@ void l2_insert_line(uint32_t address, uint32_t write_data[],
   //Extract from the address the index of the cache entry in the cache.
   //See l2_cache_access, above.
 
-  //CODE HERE
+  uint32_t extracted_index = (address & L2_INDEX_MASK) >> L2_INDEX_SHIFT;
 
   //Extract from the address the tag bits.
   //See l2_cache_access, above.
 
-  //CODE HERE
+  uint32_t extracted_tag_bits = (address & L2_ADDRESS_TAG_MASK) >> L2_ADDRESS_TAG_SHIFT;
 
   //If the cache entry has a zero valid bit or a zero dirty bit, 
   //then the entry can simply be overwritten with the new line. 
@@ -252,7 +269,19 @@ void l2_insert_line(uint32_t address, uint32_t write_data[],
   //to indicate that no write-back is needed. Nothing further 
   //needs to be done, the procedure can return.
 
-  //CODE HERE
+  if (((l2_cache[extracted_index].v_d_tag & L2_VBIT_MASK) == 0) || ((l2_cache[extracted_index].v_d_tag & L2_DIRTYBIT_MASK) == 0)) {
+    for (int i=0; i < WORDS_PER_CACHE_LINE; i++) {
+      l2_cache[extracted_index].cache_line[i] = write_data[i];
+    }
+
+    l2_cache[extracted_index].v_d_tag |= L2_VBIT_MASK;
+    l2_cache[extracted_index].v_d_tag &= ~L2_DIRTYBIT_MASK;
+    l2_cache[extracted_index].v_d_tag = (l2_cache[extracted_index].v_d_tag & ~L2_ENTRY_TAG_MASK) | extracted_tag_bits; 
+
+    *status = *status & ~0x1;
+
+    return;
+  }
 
   //Otherwise (i.e. both the valid and dirty bits are 1), the
   //current entry has to be written back before the
@@ -267,13 +296,27 @@ void l2_insert_line(uint32_t address, uint32_t write_data[],
   //The low bit of the status byte should be set to 1 to indicate that
   //the write-back is needed.
 
-  //CODE HERE
+  else {
+    *evicted_writeback_address = ((l2_cache[extracted_index].v_d_tag & L2_ENTRY_TAG_MASK) << L2_ADDRESS_TAG_SHIFT) | (extracted_index << L2_INDEX_SHIFT);
+    // uint32_t copy_index = extracted_index;
+    for (int i = 0; i <= 7; i++) {
+      evicted_writeback_data[i] = l2_cache[extracted_index].cache_line[i];
+    }
+
+    *status = *status | 0x1;
+  }
 
   //Then, copy the data from write_data to the cache line in the entry, 
   //set the valid bit of the entry, clear the dirty bit of the 
   //entry, and write the tag bits of the address into the tag of 
   //the entry.
+  // uint32_t copy_index = extracted_index;
+  for (int i=0; i <= 7; i++) { // add constant
+    l2_cache[extracted_index].cache_line[i] = write_data[i];
+  }
 
-  //CODE HERE
+  l2_cache[extracted_index].v_d_tag |= L2_VBIT_MASK;
+  l2_cache[extracted_index].v_d_tag &= ~L2_DIRTYBIT_MASK;
+  l2_cache[extracted_index].v_d_tag = (l2_cache[extracted_index].v_d_tag & ~L2_ENTRY_TAG_MASK) | extracted_tag_bits;
   
 }
