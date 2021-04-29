@@ -298,8 +298,7 @@ void l2_insert_line(uint32_t address, uint32_t write_data[],
 
   else {
     *evicted_writeback_address = ((l2_cache[extracted_index].v_d_tag & L2_ENTRY_TAG_MASK) << L2_ADDRESS_TAG_SHIFT) | (extracted_index << L2_INDEX_SHIFT);
-    // uint32_t copy_index = extracted_index;
-    for (int i = 0; i <= 7; i++) {
+    for (int i = 0; i < WORDS_PER_CACHE_LINE; i++) {
       evicted_writeback_data[i] = l2_cache[extracted_index].cache_line[i];
     }
 
@@ -310,8 +309,7 @@ void l2_insert_line(uint32_t address, uint32_t write_data[],
   //set the valid bit of the entry, clear the dirty bit of the 
   //entry, and write the tag bits of the address into the tag of 
   //the entry.
-  // uint32_t copy_index = extracted_index;
-  for (int i=0; i <= 7; i++) { // add constant
+  for (int i=0; i < WORDS_PER_CACHE_LINE; i++) {
     l2_cache[extracted_index].cache_line[i] = write_data[i];
   }
 
