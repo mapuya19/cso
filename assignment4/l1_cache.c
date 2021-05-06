@@ -140,7 +140,11 @@ the cache.
 
 void l1_initialize()
 {
-  //CODE HERE
+  for (int i=0; i < L1_NUM_CACHE_SETS; i++) {
+    for(int j=0; j < L1_LINES_PER_SET; j++) {
+      l1_cache[i].lines[j].v_r_d_tag = 0;
+    }
+  }
 }
 
 
@@ -191,21 +195,21 @@ void l1_cache_access(uint32_t address, uint32_t write_data,
   //bits of the address and L1_SET_INDEX_SHIFT to shift the 
   //bits the appropriate amount.
 
-  //CODE HERE
+  uint32_t extracted_index = (address & L1_SET_INDEX_MASK) >> L1_SET_INDEX_SHIFT;
 
   //Extract from the address the tag bits.
   //Use the L1_ADDRESS_TAG_MASK mask to mask out the appropriate
   //bits of the address and L1_ADDRESS_TAG_SHIFT to shift the 
   //bits the appropriate amount.
 
-  //CODE HERE
+  uint32_t extracted_tag_bits = (address & L1_ADDRESS_TAG_MASK) >> L1_ADDRESS_TAG_SHIFT;
 
   //Extract from the address the word offset within the cache line.
   //Use the WORD_OFFSET_MASK to mask out the appropriate bits of
   //the address and WORD_OFFSET_SHIFT to shift the bits the 
   //appropriate amount.
 
-  //CODE HERE
+  uint32_t extracted_offset = (address & WORD_OFFSET_MASK) >> WORD_OFFSET_SHIFT;
 
 
   //Within the set specified by the set index extracted from the address,
@@ -228,7 +232,25 @@ void l1_cache_access(uint32_t address, uint32_t write_data,
   //written to the appropriate word of the entry's cache line data and 
   //the entry's dirty bit should be set.
 
-  //CODE HERE
+  for (int i = 0; i < L1_LINES_PER_SET; i++) {
+    if (((l1_cache[extracted_index].lines[i].v_r_d_tag & L1_VBIT_MASK)) && (l1_cache[extracted_index].lines[i].v_r_d_tag & L1_ENTRY_TAG_MASK) == extracted_tag_bits) {
+      l1_cache[extracted_index].lines[i].v_r_d_tag |= L1_RBIT_MASK;
+      
+      if (control & READ_ENABLE_MASK) {
+          *read_data = l1_cache[extracted_index].lines[i].cache_line[extracted_offset];
+      }
+      
+      if (control & WRITE_ENABLE_MASK) {
+          l1_cache[extracted_index].lines[i].cache_line[extracted_offset] = write_data;
+          l1_cache[extracted_index].lines[i].v_r_d_tag |= L1_DIRTYBIT_MASK;
+      }
+      
+      *status |= (L1_CACHE_HIT_MASK);
+      return;
+    }
+  }
+
+  *status &= ~(L1_CACHE_HIT_MASK);
 }
 
 
@@ -286,12 +308,12 @@ void l1_insert_line(uint32_t address, uint32_t write_data[],
   //Extract from the address the index of the set in the cache.
   //see l1_cache_access above
 
-  //CODE HERE
+  uint32_t extracted_index = (address & L1_SET_INDEX_MASK) >> L1_SET_INDEX_SHIFT;
 
   //Extract from the address the tag bits. 
   //see l1_cache_access above.
 
-  //CODE HERE
+  uint32_t extracted_tag_bits = (address & L1_ADDRESS_TAG_MASK) >> L1_ADDRESS_TAG_SHIFT;
 
   // The cache replacement algorithm uses a simple NRU
   // algorithm. A cache entry (among the cache entries in the set) is 
@@ -323,8 +345,6 @@ void l1_insert_line(uint32_t address, uint32_t write_data[],
 
   //In a loop, iterate though each entry in the set.
 
-  //LOOP STARTS HERE
-
   // if the current entry has a zero v bit, then overwrite
   // the cache line in the entry with the data in write_data,
   // set the v bit of the entry, clear the dirty and reference bits, 
@@ -332,18 +352,53 @@ void l1_insert_line(uint32_t address, uint32_t write_data[],
   // output parameter to 0 to indicate the evicted line does not need 
   // to be written back. There is nothing further to do, the procedure
   // can return
+  for (int i=0; i < L1_LINES_PER_SET; i++){ // LOOP STARTS HERE
+    if (!(l1_cache[extracted_index].lines[i].v_r_d_tag & L1_VBIT_MASK)) {
+      for (int j = 0; j < WORDS_PER_CACHE_LINE; j++) {
+        l1_cache[extracted_index].lines[i].cache_line[j] = write_data[j];
+      }
 
-  //CODE HERE
+      l1_cache[extracted_index].lines[i].v_r_d_tag |= L1_VBIT_MASK;
+      l1_cache[extracted_index].lines[i].v_r_d_tag &= ~(L1_DIRTYBIT_MASK);
+      l1_cache[extracted_index].lines[i].v_r_d_tag &= ~(L1_RBIT_MASK);
+      l1_cache[extracted_index].lines[i].v_r_d_tag = (l1_cache[extracted_index].lines[i].v_r_d_tag & ~(L1_ENTRY_TAG_MASK)) | extracted_tag_bits;
 
-  //  Otherwise, we remember the first entry we encounter which has r=0 and d=0,
-  //  the first entry that has r=0 and d=1, etc. 
+      *status &= ~(L1_CACHE_HIT_MASK);
+      return;
+    }
 
-  //LOOP ENDS HERE
+    //  Otherwise, we remember the first entry we encounter which has r=0 and d=0,
+    //  the first entry that has r=0 and d=1, etc. 
+    else {
+      if (!(l1_cache[extracted_index].lines[i].v_r_d_tag & L1_RBIT_MASK) && !(l1_cache[extracted_index].lines[i].v_r_d_tag & L1_DIRTYBIT_MASK)) {
+        if (r0_d0_index == (~0x0)) {
+          r0_d0_index = i;
+        }
+    } else if (!(l1_cache[extracted_index].lines[i].v_r_d_tag & L1_RBIT_MASK) && (l1_cache[extracted_index].lines[i].v_r_d_tag & L1_DIRTYBIT_MASK)){
+       if (r0_d1_index == (~0x0)) {
+          r0_d1_index = i;
+       }
+    } else if ((l1_cache[extracted_index].lines[i].v_r_d_tag & L1_RBIT_MASK) && !(l1_cache[extracted_index].lines[i].v_r_d_tag & L1_DIRTYBIT_MASK)) {
+       if (r1_d0_index == (~0x0)) {
+          r1_d0_index = i;
+       }
+    }
+  }
+  } //LOOP ENDS HERE
 
   //When we're done looping, we choose the entry with the highest preference 
   //on the above list to evict.
+  u_int32_t entry_preference; 
 
-  //CODE HERE
+  if (r0_d0_index != (~0x0)) {
+    entry_preference = r0_d0_index;
+  } else if (r0_d1_index != (~0x0)) {
+    entry_preference = r0_d1_index;
+  } else if (r1_d0_index != (~0x0)) {
+    entry_preference = r1_d0_index;
+  } else {
+    entry_preference = 0; 
+  }
 
   //if the dirty bit of the cache entry to be evicted is set, then the data in the 
   //cache line needs to be written back. The address to write the current entry 
@@ -357,14 +412,30 @@ void l1_insert_line(uint32_t address, uint32_t write_data[],
   //should be set to 1 to indicate that the write-back is needed. Otherwise,
   //the low bit of the status byte should be set to 0.
 
-  //CODE HERE
+  if (l1_cache[extracted_index].lines[entry_preference].v_r_d_tag & L1_DIRTYBIT_MASK) {
+    *evicted_writeback_address = ((l1_cache[extracted_index].lines[entry_preference].v_r_d_tag & L1_ENTRY_TAG_MASK) << L1_ADDRESS_TAG_SHIFT) | (extracted_index << L1_SET_INDEX_SHIFT);
+    
+    for (int i = 0; i < 8; i++) {
+      evicted_writeback_data[i] = l1_cache[extracted_index].lines[entry_preference].cache_line[i];
+    }
+
+    *status |= (L1_CACHE_HIT_MASK);
+  } else {
+    *status &= ~(L1_CACHE_HIT_MASK);
+  }
 
   //Then, copy the data from write_data to the cache line in the entry, 
   //set the valid bit of the entry, clear the dirty bit of the 
   //entry, and write the tag bits of the address into the tag of 
   //the entry.
 
-  //CODE HERE
+  for (int i = 0; i < WORDS_PER_CACHE_LINE; i++) {
+    l1_cache[extracted_index].lines[entry_preference].cache_line[i] = write_data[i];
+  }
+  
+  l1_cache[extracted_index].lines[entry_preference].v_r_d_tag |= L1_VBIT_MASK;
+  l1_cache[extracted_index].lines[entry_preference].v_r_d_tag &= ~(L1_DIRTYBIT_MASK);
+  l1_cache[extracted_index].lines[entry_preference].v_r_d_tag = (l1_cache[extracted_index].lines[entry_preference].v_r_d_tag & ~(L1_ENTRY_TAG_MASK)) | extracted_tag_bits;
 }
 
 /************************************************
@@ -378,6 +449,10 @@ cache. It is called periodically to support the NRU algorithm.
     
 void l1_clear_r_bits()
 {
-  //CODE HERE
+  for (int i=0; i < L1_NUM_CACHE_SETS; i++) {
+    for(int j=0; j < L1_LINES_PER_SET; j++) {
+      l1_cache[i].lines[j].v_r_d_tag = l1_cache[i].lines[j].v_r_d_tag & ~(L1_RBIT_MASK);
+    }
+  }
 }
 
