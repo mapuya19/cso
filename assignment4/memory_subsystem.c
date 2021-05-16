@@ -98,7 +98,7 @@ void memory_access(uint32_t address, uint32_t write_data,
   // -- call l1_cache_access again to read or
   //      write the data.
 
-  if (!(status & 0x1)) {
+  if ((status & 0x1) == 0) {
     num_l1_misses++;
     memory_handle_l1_miss(address);
     l1_cache_access(address, write_data, control, read_data, &status);
@@ -132,7 +132,7 @@ void memory_handle_l1_miss(uint32_t address)
   //      occurred when attempting to read (not write) from L2 the cache.
   //  --  call l2_cache_access again to read the needed cache line
   //      from the l2 cache.
-  if (!(status & 0x1)) {
+  if ((status & 0x1) == 0) {
     num_l2_misses++;
     memory_handle_l2_miss(address, READ_ENABLE_MASK);
     l2_cache_access(address, NULL, READ_ENABLE_MASK, read_data, &status);
@@ -157,9 +157,13 @@ void memory_handle_l1_miss(uint32_t address)
   //   -- l2_cache_access should be called again to write the cache line
   //      evicted from L1 into L2.
   //      
-  if (!(status & 0x1)) {
-    memory_handle_l2_miss(evicted_address, WRITE_ENABLE_MASK);
+  if (status & 0x1) {
     l2_cache_access(evicted_address, evicted_write_data, WRITE_ENABLE_MASK, NULL, &status);
+    
+    if ((status & 0x1) == 0) {
+      memory_handle_l2_miss(evicted_address, WRITE_ENABLE_MASK);
+      l2_cache_access(evicted_address, read_data, WRITE_ENABLE_MASK, NULL, &status);
+    }
   }
 }
 
@@ -184,8 +188,12 @@ void memory_handle_l2_miss(uint32_t address, uint8_t control)
   //However, if the L2 miss was on a write operation (with an evicted line from L1), 
   //there's no need to read the cache line from main memory, since 
   //that line will be overwritten. 
+  uint32_t evicted_address;
+  uint32_t evicted_data[8];
+  uint8_t status;
+
   if ((control & READ_ENABLE_MASK)) {
-    main_memory_access(address, cache_line, WRITE_ENABLE_MASK, NULL);
+    main_memory_access(address, NULL, READ_ENABLE_MASK, cache_line);
   }
 
   //Now call l2_insert_line to insert the cache line data in cache_line,
@@ -193,16 +201,13 @@ void memory_handle_l2_miss(uint32_t address, uint8_t control)
   //that has been read from main memory. In the case of a write, then 
   //it's just meaningless data being written to L2 (i.e. whatever happened
   //to be in cache_line), since that line in L2 will be overwritten subsequently.
-  u_int32_t evicted_address;
-  uint32_t evicted_write_data[WORDS_PER_CACHE_LINE];
-  uint8_t status;
-  l2_insert_line(address, cache_line, &evicted_address, evicted_write_data, &status);
+  l2_insert_line(address, cache_line, &evicted_address, evicted_data, &status);
 
   //If the call to l2_insert_line resulted in an evicted cache line
   //that has to be written back to main memory, call main_memory_access
   //to write the evicted cache line to main memory.
-  if ((control & WRITE_ENABLE_MASK)) {
-    main_memory_access(evicted_address, evicted_write_data, WRITE_ENABLE_MASK, NULL);
+  if (status & 0x1) {
+    main_memory_access(evicted_address, evicted_data, WRITE_ENABLE_MASK, NULL);
   }
 }
 
