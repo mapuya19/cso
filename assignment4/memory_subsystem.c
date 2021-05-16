@@ -44,10 +44,13 @@ void memory_subsystem_initialize(uint32_t memory_size_in_bytes)
 
   //Call the intialization procedures for main memory,
   // L2 cache, and L1 cache. 
+  main_memory_initialize(memory_size_in_bytes);
+  l1_initialize();
+  l2_initialize();
 
   //Also initialize num_l1_misses and num_l2_misses to 0.
-
-  //CODE HERE
+  num_l1_misses = 0;
+  num_l2_misses = 0;
 }
 
 
@@ -85,8 +88,7 @@ void memory_access(uint32_t address, uint32_t write_data,
 
   //call l1_cache_access to try to read or write the 
   //data from or to the L1 cache.
-
-  //CODE HERE
+  l1_cache_access(address, write_data, control, read_data, &status);
 
   //If an L1 cache miss occurred, then:
   // -- increment num_l1_misses
@@ -96,7 +98,11 @@ void memory_access(uint32_t address, uint32_t write_data,
   // -- call l1_cache_access again to read or
   //      write the data.
 
-  //CODE HERE
+  if (!(status & 0x1)) {
+    num_l1_misses++;
+    memory_handle_l1_miss(address);
+    l1_cache_access(address, write_data, control, read_data, &status);
+  }
 }
 
 
@@ -113,8 +119,10 @@ void memory_handle_l1_miss(uint32_t address)
   //the specified address from the L2 cache. This is necessary
   //regardless if the operation that caused the L1 cache miss
   //was a read or a write.
+  uint32_t read_data[WORDS_PER_CACHE_LINE];
+  uint8_t status;
 
-  //CODE HERE
+  l2_cache_access(address, NULL, READ_ENABLE_MASK, read_data, &status);
 
   //if the result was an L2 cache miss, then:
   //   -- increment num_l2_misses
@@ -124,15 +132,19 @@ void memory_handle_l1_miss(uint32_t address)
   //      occurred when attempting to read (not write) from L2 the cache.
   //  --  call l2_cache_access again to read the needed cache line
   //      from the l2 cache.
-
-  //CODE HERE
-
+  if (!(status & 0x1)) {
+    num_l2_misses++;
+    memory_handle_l2_miss(address, READ_ENABLE_MASK);
+    l2_cache_access(address, NULL, READ_ENABLE_MASK, read_data, &status);
+  }
 
   //Now that the needed cache line has been retrieved from the 
   //L2 cache (whether an L2 cache miss occurred or not),
   //insert the cache line into the L1 cache by calling l1_insert_line.
+  uint32_t evicted_address;
+  uint32_t evicted_write_data[WORDS_PER_CACHE_LINE];
 
-  //CODE HERE
+  l1_insert_line(address, read_data, &evicted_address, evicted_write_data, &status);
 
   //if the cache line that was evicted from L1 has to be written back,
   //then l2_cache_access must be called to write the evicted cache line
@@ -145,8 +157,10 @@ void memory_handle_l1_miss(uint32_t address)
   //   -- l2_cache_access should be called again to write the cache line
   //      evicted from L1 into L2.
   //      
-
-  //CODE HERE
+  if (!(status & 0x1)) {
+    memory_handle_l2_miss(evicted_address, WRITE_ENABLE_MASK);
+    l2_cache_access(evicted_address, evicted_write_data, WRITE_ENABLE_MASK, NULL, &status);
+  }
 }
 
 
@@ -170,22 +184,26 @@ void memory_handle_l2_miss(uint32_t address, uint8_t control)
   //However, if the L2 miss was on a write operation (with an evicted line from L1), 
   //there's no need to read the cache line from main memory, since 
   //that line will be overwritten. 
- 
-  //CODE HERE
+  if ((control & READ_ENABLE_MASK)) {
+    main_memory_access(address, cache_line, WRITE_ENABLE_MASK, NULL);
+  }
 
   //Now call l2_insert_line to insert the cache line data in cache_line,
   //above, into L2. In the case of a read, this is the cache line data 
   //that has been read from main memory. In the case of a write, then 
   //it's just meaningless data being written to L2 (i.e. whatever happened
   //to be in cache_line), since that line in L2 will be overwritten subsequently.
-
-  //CODE HERE
+  u_int32_t evicted_address;
+  uint32_t evicted_write_data[WORDS_PER_CACHE_LINE];
+  uint8_t status;
+  l2_insert_line(address, cache_line, &evicted_address, evicted_write_data, &status);
 
   //If the call to l2_insert_line resulted in an evicted cache line
   //that has to be written back to main memory, call main_memory_access
   //to write the evicted cache line to main memory.
-
-  //CODE HERE
+  if ((control & WRITE_ENABLE_MASK)) {
+    main_memory_access(evicted_address, evicted_write_data, WRITE_ENABLE_MASK, NULL);
+  }
 }
 
 
@@ -196,6 +214,5 @@ void memory_handle_l2_miss(uint32_t address, uint8_t control)
 void memory_handle_clock_interrupt()
 {
   //call the function which clears the r bits in the L1 cache  
-
-  //CODE HERE
+  l1_clear_r_bits();
 }

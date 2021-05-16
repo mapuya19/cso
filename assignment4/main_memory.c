@@ -31,7 +31,7 @@ void main_memory_initialize(uint32_t size_in_bytes)
 
   //Allocate the main memory, using malloc
   main_memory_size_in_bytes = size_in_bytes;
-  main_memory = malloc(main_memory_size_in_bytes);
+  main_memory = (uint32_t*) malloc(main_memory_size_in_bytes);
 
   //Write a 0 to each word in main memory. Note that the 
   //size_in_bytes parameter specifies the size of main memory
@@ -39,9 +39,6 @@ void main_memory_initialize(uint32_t size_in_bytes)
   //array of 32-bit words, it is written to a word at a time
   //(not a byte at a time). Obviously, the size of main memory
   //in words is 1/4 of the size of main memory in bytes.
-
-  int counter = 0;
-
   for (int i=0; i < (main_memory_size_in_bytes / 4); i++) {
     main_memory[i];
   }
@@ -88,10 +85,9 @@ void main_memory_access(uint32_t address, uint32_t write_data[],
   //Need to check that the specified address is within the 
   //size of the memory. If not, print an error message and
   //exit from the program.
-
-  if (sizeof(address) <= main_memory_size_in_bytes) {
-  } else {
-    printf("Address not within size of memory.");
+ if (address >= main_memory_size_in_bytes) {
+    printf("Error: Memory size (in bytes) must be a multiple of 8-word cache lines (32 bytes)\n");
+    exit(1);
   }
 
 
